@@ -1,0 +1,623 @@
+{
+  "project": {
+    "name": "Dentist Queue Management System",
+    "description": "Complete queue management system for dental clinics",
+    "baseUrl": "http://localhost:5173",
+    "apiBaseUrl": "http://localhost:3000/api",
+    "version": "1.0.0"
+  },
+  "settings": {
+    "timeout": 30000,
+    "waitForWebSocket": 3000,
+    "retryAttempts": 2,
+    "screenshotOnFailure": true,
+    "videoRecording": true,
+    "browsers": ["chrome", "firefox"],
+    "viewports": [
+      { "width": 1920, "height": 1080, "name": "desktop" },
+      { "width": 768, "height": 1024, "name": "tablet" },
+      { "width": 375, "height": 812, "name": "mobile" }
+    ]
+  },
+  "testSuites": [
+    {
+      "id": "patient-flows",
+      "name": "Patient Check-In Flows",
+      "priority": "high",
+      "tests": [
+        {
+          "id": "new-patient-checkin",
+          "name": "New Patient Check-In (Walk-in)",
+          "description": "Complete flow for a new patient checking in as walk-in",
+          "steps": [
+            {
+              "action": "navigate",
+              "target": "/check-in",
+              "description": "Navigate to check-in page"
+            },
+            {
+              "action": "waitForElement",
+              "target": "input[placeholder*='phone']",
+              "timeout": 5000
+            },
+            {
+              "action": "type",
+              "target": "input[placeholder*='phone']",
+              "value": "+1555${timestamp}",
+              "description": "Enter unique phone number"
+            },
+            {
+              "action": "click",
+              "target": "button:contains('Continue')"
+            },
+            {
+              "action": "waitForText",
+              "target": "New Patient Registration",
+              "timeout": 10000
+            },
+            {
+              "action": "type",
+              "target": "input[label='First Name']",
+              "value": "TestPatient"
+            },
+            {
+              "action": "type",
+              "target": "input[label='Last Name']",
+              "value": "Automated"
+            },
+            {
+              "action": "type",
+              "target": "input[label='Email']",
+              "value": "test${timestamp}@example.com"
+            },
+            {
+              "action": "click",
+              "target": "button:contains('Register & Continue')"
+            },
+            {
+              "action": "waitForText",
+              "target": "Welcome",
+              "timeout": 10000
+            },
+            {
+              "action": "select",
+              "target": "[label='Priority']",
+              "value": "NORMAL"
+            },
+            {
+              "action": "type",
+              "target": "textarea[label='Reason for Visit']",
+              "value": "Automated test - Regular checkup"
+            },
+            {
+              "action": "type",
+              "target": "textarea[label='Additional Notes']",
+              "value": "This is an automated test"
+            },
+            {
+              "action": "click",
+              "target": "button:contains('Complete Check-In')"
+            },
+            {
+              "action": "waitForUrlContains",
+              "value": "/patient/",
+              "timeout": 10000
+            },
+            {
+              "action": "assertVisible",
+              "target": "h2:contains('#')",
+              "description": "Verify queue number is displayed"
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('Position')",
+              "description": "Verify position is shown"
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('Minutes Wait')",
+              "description": "Verify ETA is displayed"
+            }
+          ],
+          "assertions": [
+            { "type": "urlContains", "value": "/patient/" },
+            { "type": "elementExists", "selector": "h2" },
+            { "type": "textExists", "value": "Position" },
+            { "type": "textExists", "value": "Queue Number" }
+          ]
+        },
+        {
+          "id": "emergency-priority",
+          "name": "Emergency Priority Check-In",
+          "description": "Verify emergency patients get priority",
+          "steps": [
+            {
+              "action": "navigate",
+              "target": "/check-in"
+            },
+            {
+              "action": "type",
+              "target": "input[placeholder*='phone']",
+              "value": "+1555${timestamp}"
+            },
+            {
+              "action": "click",
+              "target": "button:contains('Continue')"
+            },
+            {
+              "action": "waitForText",
+              "target": "New Patient Registration",
+              "timeout": 10000
+            },
+            {
+              "action": "type",
+              "target": "input[label='First Name']",
+              "value": "Emergency"
+            },
+            {
+              "action": "type",
+              "target": "input[label='Last Name']",
+              "value": "Patient"
+            },
+            {
+              "action": "click",
+              "target": "button:contains('Register & Continue')"
+            },
+            {
+              "action": "waitForText",
+              "target": "Welcome",
+              "timeout": 10000
+            },
+            {
+              "action": "select",
+              "target": "[label='Priority']",
+              "value": "EMERGENCY"
+            },
+            {
+              "action": "type",
+              "target": "textarea[label='Reason for Visit']",
+              "value": "Severe tooth pain - Emergency"
+            },
+            {
+              "action": "click",
+              "target": "button:contains('Complete Check-In')"
+            },
+            {
+              "action": "waitForUrlContains",
+              "value": "/patient/"
+            },
+            {
+              "action": "assertText",
+              "target": "body",
+              "contains": "Position",
+              "value": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reception-operations",
+      "name": "Reception Dashboard Operations",
+      "priority": "high",
+      "tests": [
+        {
+          "id": "view-queue",
+          "name": "View Current Queue",
+          "description": "Verify reception can view current queue",
+          "steps": [
+            {
+              "action": "navigate",
+              "target": "/reception"
+            },
+            {
+              "action": "waitForElement",
+              "target": "h4:contains('Reception Dashboard')",
+              "timeout": 5000
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('In Queue')"
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('Waiting')"
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('In Progress')"
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('Avg Wait Time')"
+            }
+          ]
+        },
+        {
+          "id": "call-patient",
+          "name": "Call Patient to Room",
+          "description": "Complete flow of calling a patient and assigning room",
+          "prerequisite": "At least one patient in queue",
+          "steps": [
+            {
+              "action": "navigate",
+              "target": "/reception"
+            },
+            {
+              "action": "waitForElement",
+              "target": "table",
+              "timeout": 5000
+            },
+            {
+              "action": "click",
+              "target": "button:contains('Call'):first"
+            },
+            {
+              "action": "waitForElement",
+              "target": "dialog",
+              "timeout": 3000
+            },
+            {
+              "action": "select",
+              "target": "[label='Select Room']",
+              "value": "first-available"
+            },
+            {
+              "action": "click",
+              "target": "button:contains('Confirm')"
+            },
+            {
+              "action": "waitForDisappear",
+              "target": "dialog",
+              "timeout": 5000
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('Patient called successfully')"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dentist-operations",
+      "name": "Dentist Dashboard Operations",
+      "priority": "medium",
+      "tests": [
+        {
+          "id": "view-patients",
+          "name": "View Assigned Patients",
+          "description": "Verify dentist can view their assigned patients",
+          "steps": [
+            {
+              "action": "navigate",
+              "target": "/dentist"
+            },
+            {
+              "action": "waitForElement",
+              "target": "h4:contains('Dentist Dashboard')",
+              "timeout": 5000
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('My Patients')"
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('Waiting Queue')"
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('Room Management')"
+            }
+          ]
+        },
+        {
+          "id": "update-room-status",
+          "name": "Update Room Status",
+          "description": "Change room status from available to occupied",
+          "steps": [
+            {
+              "action": "navigate",
+              "target": "/dentist"
+            },
+            {
+              "action": "waitForElement",
+              "target": "text:contains('Room Management')",
+              "timeout": 5000
+            },
+            {
+              "action": "click",
+              "target": "button:contains('Occupied'):first"
+            },
+            {
+              "action": "waitForText",
+              "target": "Room status updated",
+              "timeout": 5000
+            },
+            {
+              "action": "assertVisible",
+              "target": "chip:contains('OCCUPIED')"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "realtime-features",
+      "name": "Real-Time Update Features",
+      "priority": "high",
+      "tests": [
+        {
+          "id": "websocket-connection",
+          "name": "WebSocket Connection Establishment",
+          "description": "Verify WebSocket connects successfully",
+          "steps": [
+            {
+              "action": "navigate",
+              "target": "/patient/test-id"
+            },
+            {
+              "action": "wait",
+              "duration": 3000,
+              "description": "Wait for WebSocket connection"
+            },
+            {
+              "action": "checkWebSocket",
+              "url": "ws://localhost:3000/queue",
+              "expectedStatus": "connected"
+            }
+          ]
+        },
+        {
+          "id": "position-updates",
+          "name": "Real-Time Position Updates",
+          "description": "Verify position updates when queue changes",
+          "steps": [
+            {
+              "action": "navigate",
+              "target": "/patient/{patientId}"
+            },
+            {
+              "action": "getElementText",
+              "target": "h2:contains('Position')",
+              "saveAs": "initialPosition"
+            },
+            {
+              "action": "triggerQueueChange",
+              "description": "Trigger queue change via API"
+            },
+            {
+              "action": "wait",
+              "duration": 2000
+            },
+            {
+              "action": "assertChanged",
+              "target": "h2:contains('Position')",
+              "from": "${initialPosition}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "api-tests",
+      "name": "API Endpoint Tests",
+      "priority": "high",
+      "tests": [
+        {
+          "id": "health-check",
+          "name": "API Health Check",
+          "type": "api",
+          "request": {
+            "method": "GET",
+            "url": "{{apiBaseUrl}}/health"
+          },
+          "assertions": [
+            { "type": "statusCode", "value": 200 },
+            { "type": "jsonPath", "path": "$.status", "value": "ok" },
+            { "type": "responseTime", "lessThan": 500 }
+          ]
+        },
+        {
+          "id": "create-patient-api",
+          "name": "Create Patient via API",
+          "type": "api",
+          "request": {
+            "method": "POST",
+            "url": "{{apiBaseUrl}}/patients",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "firstName": "API",
+              "lastName": "Test",
+              "phone": "+1555${timestamp}",
+              "email": "api${timestamp}@test.com"
+            }
+          },
+          "assertions": [
+            { "type": "statusCode", "value": 201 },
+            { "type": "jsonPath", "path": "$.id", "exists": true },
+            { "type": "jsonPath", "path": "$.firstName", "value": "API" },
+            { "type": "responseTime", "lessThan": 1000 }
+          ],
+          "saveResponse": {
+            "patientId": "$.id"
+          }
+        },
+        {
+          "id": "checkin-api",
+          "name": "Check-In Patient via API",
+          "type": "api",
+          "dependsOn": "create-patient-api",
+          "request": {
+            "method": "POST",
+            "url": "{{apiBaseUrl}}/queue/check-in",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "patientId": "{{patientId}}",
+              "priority": "NORMAL",
+              "reason": "API Test",
+              "notes": "Automated test"
+            }
+          },
+          "assertions": [
+            { "type": "statusCode", "value": 201 },
+            { "type": "jsonPath", "path": "$.queueNumber", "exists": true },
+            { "type": "jsonPath", "path": "$.position", "greaterThan": 0 },
+            { "type": "responseTime", "lessThan": 1000 }
+          ]
+        },
+        {
+          "id": "get-queue",
+          "name": "Get Current Queue",
+          "type": "api",
+          "request": {
+            "method": "GET",
+            "url": "{{apiBaseUrl}}/queue"
+          },
+          "assertions": [
+            { "type": "statusCode", "value": 200 },
+            { "type": "jsonPath", "path": "$", "isArray": true },
+            { "type": "responseTime", "lessThan": 500 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "edge-cases",
+      "name": "Edge Cases & Error Handling",
+      "priority": "medium",
+      "tests": [
+        {
+          "id": "duplicate-checkin",
+          "name": "Prevent Duplicate Check-In",
+          "description": "Verify system prevents duplicate check-ins",
+          "steps": [
+            {
+              "action": "createPatient",
+              "saveAs": "testPatient"
+            },
+            {
+              "action": "checkInPatient",
+              "patientId": "{{testPatient.id}}"
+            },
+            {
+              "action": "attemptCheckIn",
+              "patientId": "{{testPatient.id}}",
+              "expectError": true
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('already in queue')"
+            }
+          ]
+        },
+        {
+          "id": "invalid-phone",
+          "name": "Invalid Phone Number Validation",
+          "description": "Verify phone validation works",
+          "steps": [
+            {
+              "action": "navigate",
+              "target": "/check-in"
+            },
+            {
+              "action": "type",
+              "target": "input[placeholder*='phone']",
+              "value": "123"
+            },
+            {
+              "action": "click",
+              "target": "button:contains('Continue')"
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('valid phone')"
+            }
+          ]
+        },
+        {
+          "id": "empty-queue",
+          "name": "Handle Empty Queue",
+          "description": "Verify UI handles empty queue gracefully",
+          "steps": [
+            {
+              "action": "clearQueue"
+            },
+            {
+              "action": "navigate",
+              "target": "/reception"
+            },
+            {
+              "action": "assertVisible",
+              "target": "text:contains('No patients waiting')"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "hooks": {
+    "beforeAll": [
+      {
+        "action": "startApplication",
+        "command": "./start.sh"
+      },
+      {
+        "action": "waitForHealthy",
+        "url": "http://localhost:3000/api/health",
+        "timeout": 60000
+      }
+    ],
+    "beforeEach": [
+      {
+        "action": "clearCookies"
+      },
+      {
+        "action": "clearLocalStorage"
+      }
+    ],
+    "afterEach": [
+      {
+        "action": "takeScreenshot",
+        "onFailure": true
+      }
+    ],
+    "afterAll": [
+      {
+        "action": "generateReport"
+      }
+    ]
+  },
+  "environments": {
+    "local": {
+      "baseUrl": "http://localhost:5173",
+      "apiBaseUrl": "http://localhost:3000/api"
+    },
+    "staging": {
+      "baseUrl": "https://staging.dentist-queue.com",
+      "apiBaseUrl": "https://staging.dentist-queue.com/api"
+    },
+    "production": {
+      "baseUrl": "https://dentist-queue.com",
+      "apiBaseUrl": "https://dentist-queue.com/api"
+    }
+  },
+  "notifications": {
+    "email": {
+      "enabled": true,
+      "recipients": ["team@example.com"],
+      "onFailure": true
+    },
+    "slack": {
+      "enabled": false,
+      "webhook": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+      "channel": "#test-results"
+    }
+  }
+}
+

@@ -1,0 +1,190 @@
+// Prisma Schema for Dentist Queue Management System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PatientStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum QueuePriority {
+  EMERGENCY
+  URGENT
+  APPOINTMENT
+  NORMAL
+}
+
+enum QueueStatus {
+  WAITING
+  CALLED
+  IN_SERVICE
+  COMPLETED
+  CANCELLED
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
+enum NotificationType {
+  QUEUE_POSITION_CHANGE
+  PATIENT_CALLED
+  APPOINTMENT_REMINDER
+  ROOM_READY
+  SYSTEM_ALERT
+}
+
+model Patient {
+  id          String        @id @default(uuid())
+  firstName   String
+  lastName    String
+  email       String?       @unique
+  phone       String        @unique
+  dateOfBirth DateTime?
+  address     String?
+  notes       String?
+  status      PatientStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  appointments Appointment[]
+  queueEntries QueueEntry[]
+  notifications Notification[]
+
+  @@index([email])
+  @@index([phone])
+  @@map("patients")
+}
+
+model Provider {
+  id           String   @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String   @unique
+  phone        String
+  speciality   String?
+  licenseNo    String   @unique
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  appointments Appointment[]
+  rooms        Room[]
+
+  @@map("providers")
+}
+
+model Room {
+  id         String     @id @default(uuid())
+  roomNumber String     @unique
+  name       String
+  status     RoomStatus @default(AVAILABLE)
+  providerId String?
+  provider   Provider?  @relation(fields: [providerId], references: [id])
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  queueEntries QueueEntry[]
+
+  @@index([status])
+  @@map("rooms")
+}
+
+model Appointment {
+  id               String            @id @default(uuid())
+  patientId        String
+  patient          Patient           @relation(fields: [patientId], references: [id])
+  providerId       String
+  provider         Provider          @relation(fields: [providerId], references: [id])
+  scheduledTime    DateTime
+  duration         Int               @default(30) // in minutes
+  reason           String
+  notes            String?
+  status           AppointmentStatus @default(SCHEDULED)
+  reminderSent     Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  queueEntry QueueEntry?
+
+  @@index([patientId])
+  @@index([providerId])
+  @@index([scheduledTime])
+  @@index([status])
+  @@map("appointments")
+}
+
+model QueueEntry {
+  id            String        @id @default(uuid())
+  patientId     String
+  patient       Patient       @relation(fields: [patientId], references: [id])
+  appointmentId String?       @unique
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
+  roomId        String?
+  room          Room?         @relation(fields: [roomId], references: [id])
+  priority      QueuePriority
+  status        QueueStatus   @default(WAITING)
+  queueNumber   Int
+  position      Int           @default(0)
+  estimatedWait Int?          // in minutes
+  checkedInAt   DateTime      @default(now())
+  calledAt      DateTime?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  reason        String
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([queueNumber])
+  @@index([position])
+  @@map("queue_entries")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  patientId String?
+  patient   Patient?         @relation(fields: [patientId], references: [id])
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  sentAt    DateTime         @default(now())
+  createdAt DateTime         @default(now())
+
+  @@index([patientId])
+  @@index([read])
+  @@map("notifications")
+}
+
+model SystemConfig {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_config")
+}
+
