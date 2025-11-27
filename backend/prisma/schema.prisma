@@ -37,6 +37,7 @@ enum QueueStatus {
   IN_SERVICE
   COMPLETED
   CANCELLED
+  MISSED_CALL
 }
 
 enum RoomStatus {
@@ -66,8 +67,8 @@ model Patient {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  appointments Appointment[]
-  queueEntries QueueEntry[]
+  appointments  Appointment[]
+  queueEntries  QueueEntry[]
   notifications Notification[]
 
   @@index([email])
@@ -76,16 +77,16 @@ model Patient {
 }
 
 model Provider {
-  id           String   @id @default(uuid())
-  firstName    String
-  lastName     String
-  email        String   @unique
-  phone        String
-  speciality   String?
-  licenseNo    String   @unique
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id         String   @id @default(uuid())
+  firstName  String
+  lastName   String
+  email      String   @unique
+  phone      String
+  speciality String?
+  licenseNo  String   @unique
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   appointments Appointment[]
   rooms        Room[]
@@ -109,20 +110,38 @@ model Room {
   @@map("rooms")
 }
 
+model ServiceType {
+  id                String   @id @default(uuid())
+  name              String   @unique // e.g., "Cleaning", "Extraction", "Root Canal"
+  description       String?
+  estimatedDuration Int // in minutes
+  requiresAssistant Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  appointments Appointment[]
+  queueEntries QueueEntry[]
+
+  @@map("service_types")
+}
+
 model Appointment {
-  id               String            @id @default(uuid())
-  patientId        String
-  patient          Patient           @relation(fields: [patientId], references: [id])
-  providerId       String
-  provider         Provider          @relation(fields: [providerId], references: [id])
-  scheduledTime    DateTime
-  duration         Int               @default(30) // in minutes
-  reason           String
-  notes            String?
-  status           AppointmentStatus @default(SCHEDULED)
-  reminderSent     Boolean           @default(false)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id                String            @id @default(uuid())
+  patientId         String
+  patient           Patient           @relation(fields: [patientId], references: [id])
+  providerId        String
+  provider          Provider          @relation(fields: [providerId], references: [id])
+  serviceTypeId     String?
+  serviceType       ServiceType?      @relation(fields: [serviceTypeId], references: [id])
+  scheduledTime     DateTime
+  duration          Int               @default(30) // in minutes
+  reason            String
+  notes             String?
+  status            AppointmentStatus @default(SCHEDULED)
+  reminderSent      Boolean           @default(false)
+  dayBeforeReminder Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   queueEntry QueueEntry?
 
@@ -134,26 +153,29 @@ model Appointment {
 }
 
 model QueueEntry {
-  id            String        @id @default(uuid())
-  patientId     String
-  patient       Patient       @relation(fields: [patientId], references: [id])
-  appointmentId String?       @unique
-  appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
-  roomId        String?
-  room          Room?         @relation(fields: [roomId], references: [id])
-  priority      QueuePriority
-  status        QueueStatus   @default(WAITING)
-  queueNumber   Int
-  position      Int           @default(0)
-  estimatedWait Int?          // in minutes
-  checkedInAt   DateTime      @default(now())
-  calledAt      DateTime?
-  startedAt     DateTime?
-  completedAt   DateTime?
-  reason        String
-  notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id              String        @id @default(uuid())
+  patientId       String
+  patient         Patient       @relation(fields: [patientId], references: [id])
+  appointmentId   String?       @unique
+  appointment     Appointment?  @relation(fields: [appointmentId], references: [id])
+  serviceTypeId   String?
+  serviceType     ServiceType?  @relation(fields: [serviceTypeId], references: [id])
+  roomId          String?
+  room            Room?         @relation(fields: [roomId], references: [id])
+  priority        QueuePriority
+  status          QueueStatus   @default(WAITING)
+  queueNumber     Int
+  position        Int           @default(0)
+  estimatedWait   Int? // in minutes
+  checkedInAt     DateTime      @default(now())
+  calledAt        DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  missedCallCount Int           @default(0)
+  reason          String
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([status])
   @@index([priority])
@@ -179,12 +201,11 @@ model Notification {
 }
 
 model SystemConfig {
-  id    String @id @default(uuid())
-  key   String @unique
-  value String
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("system_config")
 }
-

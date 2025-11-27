@@ -84,6 +84,16 @@ export const queueService = {
   async remove(id: string): Promise<void> {
     await api.delete(`/queue/${id}`);
   },
+
+  async checkInAppointment(appointmentId: string, patientId: string, reason: string): Promise<any> {
+    const response = await api.post('/queue/check-in', {
+      patientId,
+      appointmentId,
+      priority: 'APPOINTMENT', // Priority 3 - higher than walk-ins (Priority 4)
+      reason,
+    });
+    return response.data;
+  },
 };
 
 export default queueService;

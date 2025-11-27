@@ -1,0 +1,292 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "NestJS",
+    "PostgreSQL",
+    "Prisma ORM",
+    "Tilil SMS API",
+    "Redis",
+    "Socket.io"
+  ],
+  "features": [
+    {
+      "name": "SMS Test Endpoint",
+      "description": "Send test SMS messages to verify SMS functionality. Accepts phone number and message, sends via Tilil API or mock mode.",
+      "files": [
+        "backend/src/sms/sms.controller.ts",
+        "backend/src/sms/sms.service.ts",
+        "backend/src/sms/dto/send-test-sms.dto.ts"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "paths": {
+          "/api/sms/test": {
+            "post": {
+              "summary": "Send a test SMS",
+              "description": "Sends a test SMS message to the specified phone number. Works in both mock and real SMS modes.",
+              "tags": ["sms"],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "required": ["to", "message"],
+                      "properties": {
+                        "to": {
+                          "type": "string",
+                          "example": "+254746551520",
+                          "description": "Recipient phone number (Kenyan format)"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Test message",
+                          "description": "SMS message content"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Test SMS sent successfully",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "type": "string",
+                            "enum": ["success", "mock", "disabled"]
+                          },
+                          "to": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "400": {
+                  "description": "Bad request - SMS failed to send"
+                },
+                "500": {
+                  "description": "Internal server error"
+                }
+              }
+            }
+          },
+          "/api/sms/stats": {
+            "get": {
+              "summary": "Get SMS statistics",
+              "description": "Returns SMS usage statistics including sent, delivered, failed counts and costs.",
+              "tags": ["sms"],
+              "responses": {
+                "200": {
+                  "description": "Returns SMS usage statistics",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "today": {
+                            "type": "object",
+                            "properties": {
+                              "sent": { "type": "number" },
+                              "delivered": { "type": "number" },
+                              "failed": { "type": "number" },
+                              "cost": { "type": "number" }
+                            }
+                          },
+                          "enabled": { "type": "boolean" },
+                          "mockMode": { "type": "boolean" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "SMS Check-In Confirmation",
+      "description": "Automatically sends SMS when patient checks in to the queue, including queue position and estimated wait time.",
+      "files": [
+        "backend/src/sms/sms.service.ts",
+        "backend/src/queue/queue.service.ts"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "paths": {
+          "/api/queue/check-in": {
+            "post": {
+              "summary": "Check in patient to queue",
+              "description": "Adds patient to queue and automatically sends SMS confirmation with queue position and wait time.",
+              "tags": ["queue"],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "required": ["patientId", "priority"],
+                      "properties": {
+                        "patientId": { "type": "string" },
+                        "appointmentId": { "type": "string" },
+                        "priority": {
+                          "type": "string",
+                          "enum": ["EMERGENCY", "URGENT", "APPOINTMENT", "NORMAL"]
+                        },
+                        "reason": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "201": {
+                  "description": "Patient checked in successfully, SMS sent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "SMS Called to Room",
+      "description": "Sends SMS notification when patient is called to a room, including doctor name and room number.",
+      "files": [
+        "backend/src/sms/sms.service.ts",
+        "backend/src/queue/queue.service.ts"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "paths": {
+          "/api/queue/{id}/call-next": {
+            "patch": {
+              "summary": "Call next patient in queue",
+              "description": "Calls patient to a room and automatically sends SMS notification with doctor and room information.",
+              "tags": ["queue"],
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string" }
+                }
+              ],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "required": ["roomId"],
+                      "properties": {
+                        "roomId": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Patient called successfully, SMS sent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "SMS Appointment Confirmation",
+      "description": "Sends SMS confirmation when appointment is booked, including appointment type, date, and time.",
+      "files": [
+        "backend/src/sms/sms.service.ts",
+        "backend/src/appointments/appointments.service.ts"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "paths": {
+          "/api/appointments": {
+            "post": {
+              "summary": "Create appointment",
+              "description": "Creates a new appointment and automatically sends SMS confirmation to patient.",
+              "tags": ["appointments"],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "required": ["patientId", "providerId", "scheduledTime"],
+                      "properties": {
+                        "patientId": { "type": "string" },
+                        "providerId": { "type": "string" },
+                        "scheduledTime": { "type": "string", "format": "date-time" },
+                        "duration": { "type": "number" },
+                        "reason": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "201": {
+                  "description": "Appointment created successfully, SMS sent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "SMS Service Complete",
+      "description": "Sends SMS when service is completed, thanking patient and requesting feedback.",
+      "files": [
+        "backend/src/sms/sms.service.ts",
+        "backend/src/queue/queue.service.ts"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "paths": {
+          "/api/queue/{id}/complete": {
+            "patch": {
+              "summary": "Complete service",
+              "description": "Marks service as complete and automatically sends thank you SMS with feedback request.",
+              "tags": ["queue"],
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Service completed successfully, SMS sent"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+

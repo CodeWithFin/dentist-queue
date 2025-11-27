@@ -95,6 +95,14 @@ if [ "$mode" == "1" ]; then
         cd ..
     fi
     
+    # Booking Frontend
+    if [ ! -d "booking-frontend/node_modules" ]; then
+        echo "Installing booking-frontend dependencies..."
+        cd booking-frontend
+        npm install
+        cd ..
+    fi
+    
     # Setup environment files
     echo ""
     echo "⚙️  Setting up environment files..."
@@ -116,6 +124,11 @@ VITE_WS_URL=http://localhost:3000" > frontend/.env
         echo -e "${GREEN}✅ Frontend .env created${NC}"
     fi
     
+    if [ ! -f "booking-frontend/.env" ]; then
+        echo "VITE_API_URL=http://localhost:3000/api" > booking-frontend/.env
+        echo -e "${GREEN}✅ Booking Frontend .env created${NC}"
+    fi
+    
     # Run database migrations
     echo ""
     echo "🗃️  Running database migrations..."
@@ -130,15 +143,17 @@ VITE_WS_URL=http://localhost:3000" > frontend/.env
     echo "Starting development servers..."
     echo ""
     echo "📍 Access points:"
-    echo "   - Frontend: http://localhost:5173"
+    echo "   - Staff Frontend: http://localhost:5173"
+    echo "   - Booking Frontend: http://localhost:5174"
     echo "   - Backend API: http://localhost:3000/api"
     echo "   - API Docs: http://localhost:3000/api/docs"
     echo ""
     echo "To start the servers, run:"
     echo "   Terminal 1: cd backend && npm run start:dev"
     echo "   Terminal 2: cd frontend && npm run dev"
+    echo "   Terminal 3: cd booking-frontend && npm run dev"
     echo ""
-    echo "Or run both at once:"
+    echo "Or run all at once:"
     echo "   npm run dev"
     
 elif [ "$mode" == "2" ]; then
