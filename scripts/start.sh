@@ -22,7 +22,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker compose &> /dev/null && ! docker compose version &> /dev/null; then
     echo -e "${RED}❌ Docker Compose is not installed. Please install Docker Compose first.${NC}"
     exit 1
 fi
@@ -53,7 +53,7 @@ if [ "$mode" == "1" ]; then
     # Start infrastructure services
     echo ""
     echo "📦 Starting PostgreSQL and Redis..."
-    docker-compose up -d postgres redis
+    docker compose up -d postgres redis
     
     # Wait for services to be ready
     echo ""
@@ -61,15 +61,15 @@ if [ "$mode" == "1" ]; then
     sleep 10
     
     # Check if services are running
-    if ! docker-compose ps | grep -q "postgres.*Up"; then
+    if ! docker compose ps | grep -q "postgres.*Up"; then
         echo -e "${RED}❌ PostgreSQL failed to start${NC}"
-        docker-compose logs postgres
+        docker compose logs postgres
         exit 1
     fi
     
-    if ! docker-compose ps | grep -q "redis.*Up"; then
+    if ! docker compose ps | grep -q "redis.*Up"; then
         echo -e "${RED}❌ Redis failed to start${NC}"
-        docker-compose logs redis
+        docker compose logs redis
         exit 1
     fi
     
@@ -163,7 +163,7 @@ elif [ "$mode" == "2" ]; then
     
     # Build and start all services
     echo "📦 Building and starting all services..."
-    docker-compose up -d --build
+    docker compose up -d --build
     
     echo ""
     echo "⏳ Waiting for services to be ready..."
@@ -173,25 +173,25 @@ elif [ "$mode" == "2" ]; then
     echo ""
     echo "🔍 Checking services..."
     
-    if docker-compose ps | grep -q "postgres.*Up"; then
+    if docker compose ps | grep -q "postgres.*Up"; then
         echo -e "${GREEN}✅ PostgreSQL is running${NC}"
     else
         echo -e "${RED}❌ PostgreSQL is not running${NC}"
     fi
     
-    if docker-compose ps | grep -q "redis.*Up"; then
+    if docker compose ps | grep -q "redis.*Up"; then
         echo -e "${GREEN}✅ Redis is running${NC}"
     else
         echo -e "${RED}❌ Redis is not running${NC}"
     fi
     
-    if docker-compose ps | grep -q "backend.*Up"; then
+    if docker compose ps | grep -q "backend.*Up"; then
         echo -e "${GREEN}✅ Backend is running${NC}"
     else
         echo -e "${RED}❌ Backend is not running${NC}"
     fi
     
-    if docker-compose ps | grep -q "frontend.*Up"; then
+    if docker compose ps | grep -q "frontend.*Up"; then
         echo -e "${GREEN}✅ Frontend is running${NC}"
     else
         echo -e "${RED}❌ Frontend is not running${NC}"
@@ -200,7 +200,7 @@ elif [ "$mode" == "2" ]; then
     # Run migrations
     echo ""
     echo "🗃️  Running database migrations..."
-    docker-compose exec backend npx prisma migrate deploy
+    docker compose exec backend npx prisma migrate deploy
     
     echo ""
     echo -e "${GREEN}✅ All services are running!${NC}"
@@ -211,10 +211,10 @@ elif [ "$mode" == "2" ]; then
     echo "   - API Docs: http://localhost/api/docs"
     echo ""
     echo "To view logs:"
-    echo "   docker-compose logs -f"
+    echo "   docker compose logs -f"
     echo ""
     echo "To stop services:"
-    echo "   docker-compose down"
+    echo "   docker compose down"
     
 else
     echo -e "${RED}Invalid choice. Exiting.${NC}"
