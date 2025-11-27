@@ -41,8 +41,14 @@ logs/
 .docker/
 
 # Prisma
-prisma/migrations/
+# Keep migrations in version control
+# prisma/migrations/
 
 # OS
 Thumbs.db
+
+# Temp files
+tmp/
+temp/
+*.tmp
 
