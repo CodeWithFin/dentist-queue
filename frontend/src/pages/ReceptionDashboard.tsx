@@ -23,12 +23,14 @@ import {
   MenuItem,
   Paper,
 } from '@mui/material';
-import { Refresh, PersonAdd, Close } from '@mui/icons-material';
+import { Refresh, PersonAdd, Close, CalendarToday } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queueService } from '../services/queue';
 import { roomsService } from '../services/rooms';
+import { appointmentsService } from '../services/appointments';
 import { socketService } from '../services/socket';
 import { toast } from 'react-toastify';
+import { format } from 'date-fns';
 
 const ReceptionDashboard = () => {
   const queryClient = useQueryClient();
@@ -50,6 +52,12 @@ const ReceptionDashboard = () => {
   const { data: rooms } = useQuery({
     queryKey: ['rooms'],
     queryFn: () => roomsService.getAll(),
+  });
+
+  const { data: appointments, refetch: refetchAppointments } = useQuery({
+    queryKey: ['appointments'],
+    queryFn: () => appointmentsService.getAll({ status: 'SCHEDULED' }),
+    refetchInterval: 10000,
   });
 
   const callPatientMutation = useMutation({
@@ -90,6 +98,31 @@ const ReceptionDashboard = () => {
     },
   });
 
+  const cancelAppointmentMutation = useMutation({
+    mutationFn: (appointmentId: string) => appointmentsService.cancel(appointmentId),
+    onSuccess: () => {
+      toast.success('Appointment cancelled successfully');
+      refetchAppointments();
+      refetchQueue();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to cancel appointment');
+    },
+  });
+
+  const checkInAppointmentMutation = useMutation({
+    mutationFn: ({ appointmentId, patientId, reason }: { appointmentId: string; patientId: string; reason: string }) =>
+      queueService.checkInAppointment(appointmentId, patientId, reason),
+    onSuccess: () => {
+      toast.success('Appointment checked in! Patient added to queue with priority.');
+      refetchQueue();
+      refetchAppointments();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to check in appointment');
+    },
+  });
+
   useEffect(() => {
     socketService.connect();
     socketService.joinReceptionRoom();
@@ -97,6 +130,7 @@ const ReceptionDashboard = () => {
     const handleQueueUpdate = (data: any) => {
       console.log('Queue updated:', data);
       refetchQueue();
+      refetchAppointments();
       queryClient.invalidateQueries({ queryKey: ['queue-stats'] });
     };
 
@@ -151,6 +185,40 @@ const ReceptionDashboard = () => {
 
   const waitingQueue = queueData?.filter((q) => q.status === 'WAITING') || [];
   const inProgress = queueData?.filter((q) => ['CALLED', 'IN_SERVICE'].includes(q.status)) || [];
+
+  // Filter appointments to only show today onwards (exclude past appointments)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Set to midnight to include all of today
+
+  const futureAppointments = appointments?.filter((apt: any) => {
+    const appointmentDate = new Date(apt.scheduledTime);
+    return appointmentDate >= today; // Only appointments from today onwards
+  }) || [];
+
+  // Group appointments by date
+  const groupedAppointments = futureAppointments.reduce((groups: any, apt: any) => {
+    const date = format(new Date(apt.scheduledTime), 'yyyy-MM-dd');
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(apt);
+    return groups;
+  }, {});
+
+  const getAppointmentStatusColor = (status: string) => {
+    switch (status) {
+      case 'SCHEDULED':
+        return 'default';
+      case 'CHECKED_IN':
+        return 'success';
+      case 'COMPLETED':
+        return 'primary';
+      case 'CANCELLED':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
 
   return (
     <Box>
@@ -236,6 +304,7 @@ const ReceptionDashboard = () => {
                   <TableCell>Queue #</TableCell>
                   <TableCell>Position</TableCell>
                   <TableCell>Patient</TableCell>
+                  <TableCell>Doctor</TableCell>
                   <TableCell>Priority</TableCell>
                   <TableCell>Reason</TableCell>
                   <TableCell>Wait Time</TableCell>
@@ -245,7 +314,7 @@ const ReceptionDashboard = () => {
               <TableBody>
                 {waitingQueue.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={8} align="center">
                       No patients waiting
                     </TableCell>
                   </TableRow>
@@ -258,6 +327,13 @@ const ReceptionDashboard = () => {
                       <TableCell>{entry.position}</TableCell>
                       <TableCell>
                         {entry.patient?.firstName} {entry.patient?.lastName}
+                      </TableCell>
+                      <TableCell>
+                        {entry.appointment?.provider
+                          ? `Dr. ${entry.appointment.provider.firstName} ${entry.appointment.provider.lastName}`
+                          : entry.room?.provider
+                          ? `Dr. ${entry.room.provider.firstName} ${entry.room.provider.lastName}`
+                          : '-'}
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -306,6 +382,7 @@ const ReceptionDashboard = () => {
                 <TableRow>
                   <TableCell>Queue #</TableCell>
                   <TableCell>Patient</TableCell>
+                  <TableCell>Doctor</TableCell>
                   <TableCell>Room</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Actions</TableCell>
@@ -314,7 +391,7 @@ const ReceptionDashboard = () => {
               <TableBody>
                 {inProgress.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">
+                    <TableCell colSpan={6} align="center">
                       No patients in service
                     </TableCell>
                   </TableRow>
@@ -324,6 +401,15 @@ const ReceptionDashboard = () => {
                       <TableCell>#{entry.queueNumber}</TableCell>
                       <TableCell>
                         {entry.patient?.firstName} {entry.patient?.lastName}
+                      </TableCell>
+                      <TableCell>
+                        {entry.appointment?.provider ? (
+                          <>Dr. {entry.appointment.provider.firstName} {entry.appointment.provider.lastName}</>
+                        ) : entry.room?.provider ? (
+                          <>Dr. {entry.room.provider.firstName} {entry.room.provider.lastName}</>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">Not assigned</Typography>
+                        )}
                       </TableCell>
                       <TableCell>{entry.room?.name || '-'}</TableCell>
                       <TableCell>
@@ -360,6 +446,116 @@ const ReceptionDashboard = () => {
               </TableBody>
             </Table>
           </TableContainer>
+        </CardContent>
+      </Card>
+
+      {/* Scheduled Appointments */}
+      <Card sx={{ mt: 3 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CalendarToday /> Scheduled Appointments
+            </Typography>
+            <Button size="small" startIcon={<Refresh />} onClick={() => refetchAppointments()}>
+              Refresh
+            </Button>
+          </Box>
+
+          {!futureAppointments || futureAppointments.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>
+              No scheduled appointments for today or future dates
+            </Typography>
+          ) : (
+            Object.keys(groupedAppointments)
+              .sort()
+              .map((date) => (
+                <Box key={date} sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" color="primary" sx={{ mb: 1, fontWeight: 'bold' }}>
+                    {format(new Date(date), 'EEEE, MMMM dd, yyyy')}
+                  </Typography>
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Time</TableCell>
+                          <TableCell>Patient</TableCell>
+                          <TableCell>Doctor</TableCell>
+                          <TableCell>Reason</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell>Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {groupedAppointments[date].map((apt: any) => (
+                          <TableRow key={apt.id}>
+                            <TableCell>
+                              {format(new Date(apt.scheduledTime), 'h:mm a')}
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2">
+                                {apt.patient.firstName} {apt.patient.lastName}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {apt.patient.phone}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              Dr. {apt.provider.firstName} {apt.provider.lastName}
+                            </TableCell>
+                            <TableCell>{apt.reason}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={apt.status}
+                                color={getAppointmentStatusColor(apt.status)}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {apt.status === 'SCHEDULED' && !apt.queueEntry && (
+                                <>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => {
+                                      // Directly check in with APPOINTMENT priority (Priority 3)
+                                      checkInAppointmentMutation.mutate({
+                                        appointmentId: apt.id,
+                                        patientId: apt.patientId,
+                                        reason: apt.reason,
+                                      });
+                                    }}
+                                    disabled={checkInAppointmentMutation.isPending}
+                                  >
+                                    Check In
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    color="error"
+                                    variant="outlined"
+                                    sx={{ ml: 1 }}
+                                    onClick={() => {
+                                      if (window.confirm(`Cancel appointment for ${apt.patient.firstName} ${apt.patient.lastName}?`)) {
+                                        cancelAppointmentMutation.mutate(apt.id);
+                                      }
+                                    }}
+                                  >
+                                    Remove
+                                  </Button>
+                                </>
+                              )}
+                              {apt.queueEntry && (
+                                <Chip label="In Queue" color="success" size="small" />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              ))
+          )}
         </CardContent>
       </Card>
 

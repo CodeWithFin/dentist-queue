@@ -1,173 +1,84 @@
-# Dentist Clinic Queue Management System
+# 🦷 Dentist Clinic Queue Management System
 
 A comprehensive full-stack queue management system for dental clinics with real-time updates, priority queuing, and multi-dashboard support.
 
-## Features
-
-- **Patient Check-in**: Walk-in or appointment-based check-in system
-- **Priority Queue**: Emergency > Urgent > Appointment > Normal Walk-in
-- **Real-time Updates**: Live queue position and ETA updates via WebSocket
-- **Multi-Dashboard**: Separate interfaces for patients, reception, and dentists
-- **Room Management**: Track room availability and occupancy
-- **Notifications**: Real-time notifications for queue changes
-- **Full Testing Suite**: Unit, integration, and E2E tests
-
-## Tech Stack
-
-### Backend
-- Node.js + TypeScript
-- NestJS
-- PostgreSQL (Prisma ORM)
-- Redis (Queue & Cache)
-- WebSocket (Socket.io)
-
-### Frontend
-- React + TypeScript
-- Material UI
-- Socket.io Client
-- React Query
-
-### Testing
-- Jest + Supertest (Backend)
-- React Testing Library (Frontend)
-- Cypress (E2E)
-
-### Deployment
-- Docker + Docker Compose
-- Nginx
-
-## Quick Start
-
-### Prerequisites
-- Node.js 18+
-- Docker & Docker Compose
-- PostgreSQL
-- Redis
-
-### Development Setup
-
-1. Clone the repository:
-```bash
-git clone <repo-url>
-cd dentist-queue-management-system
-```
-
-2. Install dependencies:
-```bash
-npm run install:all
-```
-
-3. Set up environment variables:
-```bash
-# Backend
-cp backend/.env.example backend/.env
-
-# Frontend
-cp frontend/.env.example frontend/.env
-```
-
-4. Start services with Docker:
-```bash
-docker-compose up -d postgres redis
-```
-
-5. Run database migrations:
-```bash
-cd backend
-npx prisma migrate dev
-npx prisma generate
-```
-
-6. Start development servers:
-```bash
-npm run dev
-```
-
-- Backend API: http://localhost:3000
-- Frontend: http://localhost:5173
-
-### Production Deployment
+## 🚀 Quick Start
 
 ```bash
-docker-compose up -d
-```
+# Install dependencies
+npm install
 
-Access the application at http://localhost
-
-## API Documentation
-
-Once the backend is running, visit:
-- Swagger UI: http://localhost:3000/api
-- Health Check: http://localhost:3000/health
-
-## Testing
-
-### Local Testing
-
-```bash
-# Run all tests
-npm run test
-
-# Backend tests only
-npm run test:backend
-
-# Frontend tests only
-npm run test:frontend
-
-# E2E tests
-npm run test:e2e
-```
-
-### TestSprite Automated Testing
-
-Test your application with AI-powered TestSprite:
-
-```bash
-# 1. Start the application
+# Start backend and frontend
 ./start.sh
 
-# 2. Follow TestSprite setup guide
-See TESTSPRITE_QUICKSTART.md for 5-minute setup
-See TESTSPRITE_GUIDE.md for comprehensive guide
+# Or start individually
+cd backend && npm run start:dev
+cd frontend && npm run dev
 ```
 
-**Quick TestSprite Setup:**
-1. Sign up at https://www.testsprite.com/
-2. Create new project with URL: http://localhost:5173
-3. Import testsprite.config.json (optional)
-4. Run automated tests!
+## 📚 Documentation
 
-**Documentation:**
-- 🚀 Quick Start: [TESTSPRITE_QUICKSTART.md](TESTSPRITE_QUICKSTART.md)
-- 📚 Full Guide: [TESTSPRITE_GUIDE.md](TESTSPRITE_GUIDE.md)
-- ⚙️ Configuration: [testsprite.config.json](testsprite.config.json)
+All documentation is located in the [`docs/`](./docs/) folder:
 
-## Project Structure
+- **[README.md](./docs/README.md)** - Full project documentation
+- **[QUICK_SETUP.md](./docs/QUICK_SETUP.md)** - Quick setup guide
+- **[API.md](./docs/API.md)** - API documentation
+- **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Deployment guide
+- **[USAGE.md](./docs/USAGE.md)** - Usage instructions
+
+### Feature Guides
+
+- **[Appointment Booking](./docs/APPOINTMENT_BOOKING_GUIDE.md)** - Self-service booking
+- **[SMS Integration](./docs/SMS_INTEGRATION_GUIDE.md)** - Twilio SMS setup
+- **[Real-time Wait Times](./docs/REALTIME_WAIT_TIME_GUIDE.md)** - Wait time calculations
+- **[TestSprite Testing](./docs/TESTSPRITE_GUIDE.md)** - Automated testing guide
+
+### SMS Documentation
+
+- [SMS Quick Setup](./docs/SMS_QUICK_SETUP.md)
+- [SMS Implementation](./docs/SMS_IMPLEMENTATION_COMPLETE.md)
+- [Twilio Setup](./docs/TWILIO_SETUP_COMPLETE.md)
+- [SMS Testing Results](./docs/SMS_TESTING_RESULTS.md)
+
+### Testing Documentation
+
+- [TestSprite Quick Start](./docs/TESTSPRITE_QUICKSTART.md)
+- [TestSprite Step-by-Step](./docs/TESTSPRITE_STEP_BY_STEP.md)
+- [Test Report Template](./docs/TEST_REPORT_TEMPLATE.md)
+
+## 🏗️ Project Structure
 
 ```
-├── backend/              # NestJS backend
-│   ├── src/
-│   │   ├── patients/     # Patient management
-│   │   ├── appointments/ # Appointment scheduling
-│   │   ├── queue/        # Queue management
-│   │   ├── rooms/        # Room management
-│   │   ├── providers/    # Dentist management
-│   │   ├── notifications/# Notification system
-│   │   └── websocket/    # WebSocket gateway
-│   ├── prisma/           # Database schema
-│   └── test/             # Tests
-├── frontend/             # React frontend
-│   ├── src/
-│   │   ├── components/   # Shared components
-│   │   ├── pages/        # Page components
-│   │   ├── services/     # API services
-│   │   └── hooks/        # Custom hooks
-│   └── cypress/          # E2E tests
-├── docker-compose.yml    # Docker services
-└── nginx/                # Nginx configuration
+├── backend/          # NestJS backend API
+├── frontend/         # React frontend
+├── docs/            # All documentation
+├── nginx/           # Nginx configuration
+└── docker-compose.yml
 ```
 
-## License
+## ✨ Key Features
 
-MIT
+- ✅ Patient check-in (walk-in or appointment)
+- ✅ Priority queue management
+- ✅ Real-time position and ETA updates
+- ✅ Multi-dashboard support (Patient, Reception, Dentist)
+- ✅ Room management
+- ✅ SMS notifications
+- ✅ Self-service appointment booking
+- ✅ Comprehensive testing suite
+
+## 🔧 Tech Stack
+
+- **Backend**: NestJS, PostgreSQL, Redis, WebSocket
+- **Frontend**: React, TypeScript, Material UI
+- **Testing**: Jest, Cypress, TestSprite
+- **Deployment**: Docker, Nginx
+
+## 📖 Full Documentation
+
+See the [docs/](./docs/) folder for complete documentation.
+
+---
+
+For detailed setup, API reference, and usage instructions, please refer to the [documentation folder](./docs/).
 

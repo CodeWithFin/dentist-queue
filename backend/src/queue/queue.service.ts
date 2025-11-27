@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -10,6 +10,7 @@ const QUEUE_KEY = 'dentist:queue';
 
 @Injectable()
 export class QueueService {
+  private readonly logger = new Logger(QueueService.name);
   private priorityMap = {
     [QueuePriority.EMERGENCY]: 1,
     [QueuePriority.URGENT]: 2,
@@ -104,14 +105,16 @@ export class QueueService {
 
     // Send SMS confirmation
     try {
+      this.logger.log(`[QueueService] Sending check-in SMS to patient ${patient.id} (${patient.phone}), position: ${position}, ETA: ${eta} minutes`);
       await this.smsService.sendCheckInConfirmation(patient.id, {
         queueNumber: queueEntry.queueNumber,
         position,
         estimatedWait: eta,
       });
+      this.logger.log(`[QueueService] ✅ Check-in SMS sent successfully`);
     } catch (error) {
       // Log error but don't fail the check-in
-      console.error('Failed to send SMS confirmation:', error);
+      this.logger.error('[QueueService] ❌ Failed to send SMS confirmation:', error);
     }
 
     return {
@@ -130,11 +133,27 @@ export class QueueService {
       },
       include: {
         patient: true,
-        appointment: true,
-        room: true,
+        appointment: {
+          include: {
+            provider: true,
+          },
+        },
+        room: {
+          include: {
+            provider: true,
+          },
+        },
       },
       orderBy: [{ priority: 'asc' }, { checkedInAt: 'asc' }],
     });
+
+    // Debug log
+    if (queueEntries.length > 0 && queueEntries[0].appointment) {
+      const apt = queueEntries[0].appointment;
+      console.log(`[Queue] First entry appointment has provider: ${apt.provider ? 'YES' : 'NO'}`);
+      console.log(`[Queue] Appointment providerId: ${apt.providerId}`);
+      console.log(`[Queue] Appointment provider object: ${JSON.stringify(apt.provider || null)}`);
+    }
 
     // Enrich with position and ETA
     const enrichedQueue = await Promise.all(
@@ -208,6 +227,13 @@ export class QueueService {
   async callNextPatient(id: string, roomId: string) {
     const queueEntry = await this.prisma.queueEntry.findUnique({
       where: { id },
+      include: {
+        appointment: {
+          include: {
+            provider: true,
+          },
+        },
+      },
     });
 
     if (!queueEntry) {
@@ -217,6 +243,9 @@ export class QueueService {
     // Verify room exists and is available
     const room = await this.prisma.room.findUnique({
       where: { id: roomId },
+      include: {
+        provider: true,
+      },
     });
 
     if (!room) {
@@ -233,15 +262,37 @@ export class QueueService {
       },
       include: {
         patient: true,
-        room: true,
+        room: {
+          include: {
+            provider: true,
+          },
+        },
+        appointment: {
+          include: {
+            provider: true,
+          },
+        },
       },
     });
 
-    // Send SMS notification
+    // Determine the provider (doctor)
+    // Priority: 1. Appointment provider, 2. Room provider, 3. null
+    const provider = updated.appointment?.provider || room.provider;
+    const doctorName = provider ? `Dr. ${provider.firstName} ${provider.lastName}` : null;
+
+    this.logger.log(`[QueueService] Calling patient ${updated.patient.firstName} to ${room.name}, Doctor: ${doctorName || 'None'}`);
+
+    // Send SMS notification with doctor and room information
     try {
-      await this.smsService.sendCalledToRoom(updated.patientId, room.name);
+      this.logger.log(`[QueueService] Sending 'called to room' SMS to patient ${updated.patientId} (${updated.patient.phone})`);
+      await this.smsService.sendCalledToRoom(
+        updated.patientId,
+        room.name,
+        doctorName,
+      );
+      this.logger.log(`[QueueService] ✅ 'Called to room' SMS sent successfully`);
     } catch (error) {
-      console.error('Failed to send SMS notification:', error);
+      this.logger.error('[QueueService] ❌ Failed to send SMS notification:', error);
     }
 
     return updated;
@@ -306,6 +357,15 @@ export class QueueService {
 
     // Update positions
     await this.updateQueuePositions();
+
+    // Send thank you SMS with feedback request
+    try {
+      console.log(`[QueueService] Attempting to send completion SMS to patient: ${queueEntry.patientId}`);
+      await this.smsService.sendServiceCompleted(queueEntry.patientId, 'our dental clinic');
+      console.log(`[QueueService] Completion SMS sent successfully to patient: ${queueEntry.patientId}`);
+    } catch (error) {
+      console.error('[QueueService] Failed to send completion SMS:', error);
+    }
 
     return queueEntry;
   }
@@ -443,7 +503,6 @@ export class QueueService {
           gte: new Date(new Date().setHours(0, 0, 0, 0)),
         },
         startedAt: { not: null },
-        completedAt: { not: null },
       },
       select: {
         startedAt: true,

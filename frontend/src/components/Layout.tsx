@@ -3,93 +3,92 @@ import {
   AppBar,
   Toolbar,
   Typography,
-  Button,
   Box,
   Container,
-  IconButton,
 } from '@mui/material';
-import { Home, Person, Dashboard, Tv, CalendarMonth } from '@mui/icons-material';
+import { LocalHospital } from '@mui/icons-material';
 
 const Layout = () => {
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
+  const navLinks = [
+    { path: '/check-in', label: 'Check-In' },
+    { path: '/reception', label: 'Reception' },
+    { path: '/dentist', label: 'Dentist' },
+    { path: '/display', label: 'Display' },
+  ];
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar position="static" elevation={2}>
-        <Toolbar>
-          <IconButton
+      <AppBar 
+        position="static" 
+        elevation={0}
+        sx={{
+          backgroundColor: '#1d1d1f',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <Toolbar 
+          sx={{ 
+            minHeight: '44px !important',
+            height: '44px',
+            px: { xs: 2, sm: 4 },
+            justifyContent: 'center',
+          }}
+        >
+          {/* Logo on the left */}
+          <Box
             component={Link}
             to="/"
-            edge="start"
-            color="inherit"
-            sx={{ mr: 2 }}
-          >
-            <Home />
-          </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Dentist Queue Management
-          </Typography>
-          <Button
-            component={Link}
-            to="/book"
-            color="inherit"
-            startIcon={<CalendarMonth />}
             sx={{
-              backgroundColor: isActive('/book') ? 'rgba(255,255,255,0.1)' : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              textDecoration: 'none',
+              color: 'inherit',
+              mr: 4,
             }}
           >
-            Book Appointment
-          </Button>
-          <Button
-            component={Link}
-            to="/check-in"
-            color="inherit"
-            startIcon={<Person />}
+            <LocalHospital 
+              sx={{ 
+                fontSize: 18,
+                color: '#f5f5f7',
+              }} 
+            />
+          </Box>
+
+          {/* Navigation links - centered */}
+          <Box
             sx={{
-              ml: 1,
-              backgroundColor: isActive('/check-in') ? 'rgba(255,255,255,0.1)' : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              flexGrow: 1,
+              justifyContent: 'center',
             }}
           >
-            Check-In
-          </Button>
-          <Button
-            component={Link}
-            to="/reception"
-            color="inherit"
-            startIcon={<Dashboard />}
-            sx={{
-              ml: 1,
-              backgroundColor: isActive('/reception') ? 'rgba(255,255,255,0.1)' : 'transparent',
-            }}
-          >
-            Reception
-          </Button>
-          <Button
-            component={Link}
-            to="/dentist"
-            color="inherit"
-            startIcon={<Dashboard />}
-            sx={{
-              ml: 1,
-              backgroundColor: isActive('/dentist') ? 'rgba(255,255,255,0.1)' : 'transparent',
-            }}
-          >
-            Dentist
-          </Button>
-          <Button
-            component={Link}
-            to="/display"
-            color="inherit"
-            startIcon={<Tv />}
-            sx={{
-              ml: 1,
-              backgroundColor: isActive('/display') ? 'rgba(255,255,255,0.1)' : 'transparent',
-            }}
-          >
-            Display
-          </Button>
+            {navLinks.map((link) => (
+              <Typography
+                key={link.path}
+                component={Link}
+                to={link.path}
+                sx={{
+                  fontSize: '12px',
+                  fontWeight: 400,
+                  color: isActive(link.path) ? '#f5f5f7' : '#86868b',
+                  textDecoration: 'none',
+                  transition: 'color 0.2s ease',
+                  '&:hover': {
+                    color: '#f5f5f7',
+                  },
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                {link.label}
+              </Typography>
+            ))}
+          </Box>
         </Toolbar>
       </AppBar>
       <Container maxWidth={false} sx={{ flexGrow: 1, py: 4 }}>

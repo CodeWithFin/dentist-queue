@@ -1,7 +1,7 @@
 {
-  "status": "init",
+  "status": "commited",
+  "type": "backend",
   "scope": "codebase",
-  "type": "frontend",
-  "localEndpoint": "http://localhost:5173/",
-  "serverPort": 46801
+  "localEndpoint": "http://localhost:5173//",
+  "backendAuthType": "public"
 }
