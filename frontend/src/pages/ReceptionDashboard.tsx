@@ -23,7 +23,7 @@ import {
   MenuItem,
   Paper,
 } from '@mui/material';
-import { Refresh, PersonAdd, Close, CalendarToday } from '@mui/icons-material';
+import { Refresh, PersonAdd, CalendarToday } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queueService } from '../services/queue';
 import { roomsService } from '../services/rooms';
