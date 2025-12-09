@@ -283,16 +283,27 @@ export class QueueService {
     this.logger.log(`[QueueService] Calling patient ${updated.patient.firstName} to ${room.name}, Doctor: ${doctorName || 'None'}`);
 
     // Send SMS notification with doctor and room information
-    try {
-      this.logger.log(`[QueueService] Sending 'called to room' SMS to patient ${updated.patientId} (${updated.patient.phone})`);
-      await this.smsService.sendCalledToRoom(
-        updated.patientId,
-        room.name,
-        doctorName,
-      );
-      this.logger.log(`[QueueService] ✅ 'Called to room' SMS sent successfully`);
-    } catch (error) {
-      this.logger.error('[QueueService] ❌ Failed to send SMS notification:', error);
+    // Check if patient has a phone number before attempting to send SMS
+    if (!updated.patient || !updated.patient.phone) {
+      this.logger.warn(`[QueueService] ⚠️ Patient ${updated.patientId} has no phone number. Skipping SMS notification.`);
+    } else {
+      try {
+        this.logger.log(`[QueueService] Sending 'called to room' SMS to patient ${updated.patientId} (${updated.patient.phone})`);
+        this.logger.log(`[QueueService] Room: ${room.name} (${room.roomNumber}), Doctor: ${doctorName || 'None'}`);
+        // Use room number for clearer SMS message (e.g., "101" instead of "Room 1")
+        await this.smsService.sendCalledToRoom(
+          updated.patientId,
+          room.roomNumber, // Use room number instead of room name
+          doctorName,
+        );
+        this.logger.log(`[QueueService] ✅ 'Called to room' SMS sent successfully`);
+      } catch (error: any) {
+        this.logger.error('[QueueService] ❌ Failed to send SMS notification:', error);
+        this.logger.error('[QueueService] Error details:', error.message || 'Unknown error');
+        this.logger.error('[QueueService] Error stack:', error.stack);
+        // Don't throw - allow the call to succeed even if SMS fails
+        // But log the error for debugging
+      }
     }
 
     return updated;
@@ -360,11 +371,13 @@ export class QueueService {
 
     // Send thank you SMS with feedback request
     try {
-      console.log(`[QueueService] Attempting to send completion SMS to patient: ${queueEntry.patientId}`);
+      this.logger.log(`[QueueService] Attempting to send completion SMS to patient: ${queueEntry.patientId} (${queueEntry.patient.phone})`);
       await this.smsService.sendServiceCompleted(queueEntry.patientId, 'our dental clinic');
-      console.log(`[QueueService] Completion SMS sent successfully to patient: ${queueEntry.patientId}`);
-    } catch (error) {
-      console.error('[QueueService] Failed to send completion SMS:', error);
+      this.logger.log(`[QueueService] ✅ Completion SMS sent successfully to patient: ${queueEntry.patientId}`);
+    } catch (error: any) {
+      this.logger.error('[QueueService] ❌ Failed to send completion SMS:', error);
+      this.logger.error('[QueueService] Error details:', error.message || 'Unknown error');
+      this.logger.error('[QueueService] Error stack:', error.stack);
     }
 
     return queueEntry;

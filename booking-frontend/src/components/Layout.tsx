@@ -1,90 +1,37 @@
 import { Outlet, Link } from 'react-router-dom';
-import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Box,
-  Container,
-} from '@mui/material';
-import { LocalHospital } from '@mui/icons-material';
+import { Stethoscope } from 'lucide-react';
 
 const Layout = () => {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar 
-        position="static" 
-        elevation={0}
-        sx={{
-          backgroundColor: '#1d1d1f',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        }}
-      >
-        <Toolbar 
-          sx={{ 
-            minHeight: '44px !important',
-            height: '44px',
-            px: { xs: 2, sm: 4 },
-            justifyContent: 'space-between',
-          }}
-        >
-          {/* Logo on the left */}
-          <Box
-            component={Link}
+    <div className="flex flex-col min-h-screen">
+      <header className="bg-[#1d1d1f] border-b border-white/10">
+        <div className="h-11 px-4 sm:px-8 flex items-center justify-between">
+          <Link
             to="/"
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              textDecoration: 'none',
-              color: 'inherit',
-            }}
+            className="flex items-center text-inherit no-underline"
           >
-            <LocalHospital 
-              sx={{ 
-                fontSize: 18,
-                color: '#f5f5f7',
-              }} 
-            />
-          </Box>
-
-          {/* Title - centered */}
-          <Typography
-            variant="body2"
-            sx={{
-              fontSize: '12px',
-              fontWeight: 400,
-              color: '#f5f5f7',
-              letterSpacing: '-0.01em',
-            }}
-          >
+            <Stethoscope className="h-4 w-4 text-[#f5f5f7]" />
+          </Link>
+          <p className="text-xs font-normal text-[#f5f5f7] tracking-tight">
             Book Your Appointment
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <Container maxWidth={false} sx={{ flexGrow: 1, py: 0 }}>
+          </p>
+        </div>
+      </header>
+      <main className="flex-grow py-0">
         <Outlet />
-      </Container>
-      <Box
-        component="footer"
-        sx={{
-          py: 3,
-          px: 2,
-          mt: 'auto',
-          backgroundColor: '#f5f5f7',
-        }}
-      >
-        <Container maxWidth="lg">
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ color: '#86868b' }}>
+      </main>
+      <footer className="py-3 px-2 mt-auto bg-[#f5f5f7]">
+        <div className="max-w-6xl mx-auto">
+          <p className="text-sm text-[#86868b] text-center">
             © 2025 Your Dental Clinic. All rights reserved.
-          </Typography>
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1, color: '#86868b' }}>
+          </p>
+          <p className="text-sm text-[#86868b] text-center mt-1">
             📞 Contact us: +1 (555) 123-4567 | 📧 info@dentalclinic.com
-          </Typography>
-        </Container>
-      </Box>
-    </Box>
+          </p>
+        </div>
+      </footer>
+    </div>
   );
 };
 
 export default Layout;
-
-

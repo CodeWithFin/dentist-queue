@@ -98,7 +98,7 @@ export class SmsService {
     return currentHour >= startHour && currentHour < endHour;
   }
 
-  async sendSms(to: string, message: string): Promise<any> {
+  async sendSms(to: string, message: string, retryCount: number = 0): Promise<any> {
     if (!this.enabled) {
       this.logger.debug(`SMS disabled: Would send to ${to}: ${message}`);
       return { status: 'disabled', message: 'SMS service is disabled' };
@@ -119,11 +119,12 @@ export class SmsService {
       throw new BadRequestException('Tilil API credentials not configured. Please check your environment variables.');
     }
 
+    // Format phone number to Tilil format
+    const formattedPhone = this.formatPhoneNumber(to);
+    const maxRetries = 2;
+    
     try {
-      // Format phone number to Tilil format
-      const formattedPhone = this.formatPhoneNumber(to);
-      
-      this.logger.log(`[SMS] Attempting to send to ${to} → formatted: ${formattedPhone}`);
+      this.logger.log(`[SMS] Attempting to send to ${to} → formatted: ${formattedPhone}${retryCount > 0 ? ` (retry ${retryCount}/${maxRetries})` : ''}`);
 
       // Prepare request payload
       const payload = {
@@ -136,16 +137,45 @@ export class SmsService {
       };
 
       this.logger.log(`[SMS] Payload: ${JSON.stringify({ ...payload, api_key: '***' })}`);
+      this.logger.log(`[SMS] API URL: ${this.apiUrl}`);
 
-      // Send SMS via Tilil API
+      // Send SMS via Tilil API with increased timeout
       const response = await axios.post(this.apiUrl, payload, {
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        timeout: 10000, // 10 second timeout
+        timeout: 60000, // Increased to 60 second timeout
+        validateStatus: (status) => status < 500, // Don't throw on 4xx errors
       });
 
       this.logger.log(`[SMS] ✅ SMS sent to ${to} (${formattedPhone}). Response: ${JSON.stringify(response.data)}`);
+      this.logger.log(`[SMS] Response status: ${response.status}`);
+
+      // Check if response indicates success or failure
+      if (response.data && typeof response.data === 'object') {
+        const responseStatus = response.data.status || response.data.Status || response.data.success;
+        const responseMessage = response.data.message || response.data.Message || response.data.msg;
+        
+        if (responseStatus === 'success' || responseStatus === 'Success' || response.status === 200) {
+          return {
+            status: 'success',
+            to: formattedPhone,
+            message,
+            response: response.data,
+            timestamp: new Date().toISOString(),
+          };
+        } else {
+          // API returned an error response
+          this.logger.warn(`[SMS] ⚠️ API returned error status: ${responseStatus}, message: ${responseMessage}`);
+          throw new BadRequestException({
+            statusCode: 400,
+            message: `SMS API error: ${responseMessage || 'Unknown error'}`,
+            error: 'SMS_API_ERROR',
+            details: response.data,
+          });
+        }
+      }
 
       return {
         status: 'success',
@@ -155,14 +185,46 @@ export class SmsService {
         timestamp: new Date().toISOString(),
       };
     } catch (error: any) {
-      this.logger.error(`[SMS] ❌ Failed to send SMS to ${to}`, error.response?.data || error.message);
-      this.logger.error(`[SMS] Full error:`, error);
+      // Log detailed error information
+      this.logger.error(`[SMS] ❌ Failed to send SMS to ${to}${retryCount > 0 ? ` (retry ${retryCount})` : ''}`);
+      this.logger.error(`[SMS] Error type: ${error.constructor?.name || 'Unknown'}`);
+      this.logger.error(`[SMS] Error message: ${error.message || 'No message'}`);
+      this.logger.error(`[SMS] Error response: ${JSON.stringify(error.response?.data || {})}`);
+      this.logger.error(`[SMS] Error code: ${error.code || 'No code'}`);
+      if (error.response) {
+        this.logger.error(`[SMS] HTTP Status: ${error.response.status}`);
+        this.logger.error(`[SMS] Response headers: ${JSON.stringify(error.response.headers || {})}`);
+      }
       
       // Extract error message from Tilil API response
       const errorMessage = error.response?.data?.message || 
                           error.response?.data?.error || 
+                          error.response?.data?.Message ||
                           error.message || 
                           'Unknown error occurred';
+      
+      // Check if it's a network/timeout error - retry if we haven't exceeded max retries
+      if ((error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || error.message?.includes('timeout') || error.code === 'ECONNREFUSED') && retryCount < maxRetries) {
+        this.logger.warn(`[SMS] ⚠️ Network/timeout error - retrying (${retryCount + 1}/${maxRetries})...`);
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        return this.sendSms(to, message, retryCount + 1);
+      }
+      
+      // If it's a timeout after all retries, log but don't throw
+      if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+        this.logger.error(`[SMS] ❌ Timeout after ${retryCount + 1} attempts - SMS likely NOT sent`);
+        throw new InternalServerErrorException({
+          statusCode: 500,
+          message: `SMS service timeout: The SMS API did not respond within 60 seconds. The SMS was likely NOT sent. Please check your API credentials and network connection.`,
+          error: 'SMS_TIMEOUT',
+          details: {
+            to: formattedPhone,
+            attempts: retryCount + 1,
+            apiUrl: this.apiUrl,
+          },
+        });
+      }
       
       // If it's an axios error with response, it's likely a bad request
       if (error.response) {
@@ -179,6 +241,10 @@ export class SmsService {
         statusCode: 500,
         message: `SMS service error: ${errorMessage}`,
         error: 'SMS_SERVICE_ERROR',
+        details: {
+          code: error.code,
+          message: error.message,
+        },
       });
     }
   }
@@ -214,10 +280,10 @@ export class SmsService {
     
     // Format position text
     const positionText = data.position > 0 
-      ? `You're #${data.position} in the queue`
-      : `You're in the queue`;
+      ? `You are currently #${data.position} in the queue at ${this.clinicName}.`
+      : `You are currently in the queue at ${this.clinicName}.`;
 
-    const message = `✅ You're now in the queue at ${this.clinicName}! ${positionText}. Estimated wait time: ${waitTimeText}. We'll notify you when it's your turn.`;
+    const message = `${positionText} The estimated wait time is ${waitTimeText}. You will be notified when it is your turn.`;
 
     this.logger.log(`[SMS] Sending check-in confirmation to ${patient.phone}: ${message}`);
     
@@ -268,48 +334,82 @@ export class SmsService {
     roomName: string,
     doctorName?: string | null,
   ): Promise<void> {
-    this.logger.log(`[SMS] sendCalledToRoom called for patient ${patientId}, room: ${roomName}, doctor: ${doctorName}`);
+    this.logger.log(`[SMS] ========== sendCalledToRoom START ==========`);
+    this.logger.log(`[SMS] Patient ID: ${patientId}`);
+    this.logger.log(`[SMS] Room: ${roomName}`);
+    this.logger.log(`[SMS] Doctor: ${doctorName || 'None'}`);
 
     // Check if SMS is enabled and if called SMS is enabled
     const smsEnabled = this.configService.get<string>('SMS_ENABLED', 'true') === 'true';
     const sendOnCalled = this.configService.get<string>('SMS_SEND_ON_CALLED', 'true') === 'true';
     
-    this.logger.log(`[SMS] SMS_ENABLED: ${smsEnabled}, SMS_SEND_ON_CALLED: ${sendOnCalled}`);
+    this.logger.log(`[SMS] Configuration - SMS_ENABLED: ${smsEnabled}, SMS_SEND_ON_CALLED: ${sendOnCalled}`);
 
-    if (!smsEnabled || !sendOnCalled) {
-      this.logger.warn(`[SMS] SMS disabled. SMS_ENABLED=${smsEnabled}, SMS_SEND_ON_CALLED=${sendOnCalled}`);
+    if (!smsEnabled) {
+      this.logger.warn(`[SMS] ❌ SMS is disabled globally. SMS_ENABLED=${smsEnabled}`);
+      return;
+    }
+
+    if (!sendOnCalled) {
+      this.logger.warn(`[SMS] ❌ Called SMS is disabled. SMS_SEND_ON_CALLED=${sendOnCalled}`);
       return;
     }
 
     // ALWAYS send this critical SMS - no business hours restriction
+    this.logger.log(`[SMS] Looking up patient ${patientId} in database...`);
     const patient = await this.prisma.patient.findUnique({
       where: { id: patientId },
     });
 
-    if (!patient || !patient.phone) {
-      this.logger.warn(`[SMS] Patient ${patientId} has no phone for called SMS`);
-      return;
+    if (!patient) {
+      this.logger.error(`[SMS] ❌ Patient ${patientId} not found in database`);
+      throw new Error(`Patient ${patientId} not found`);
     }
 
-    this.logger.log(`[SMS] Patient found: ${patient.firstName} ${patient.lastName}, phone: ${patient.phone}`);
+    this.logger.log(`[SMS] Patient found: ${patient.firstName} ${patient.lastName}`);
+    this.logger.log(`[SMS] Patient phone: ${patient.phone || 'NOT SET'}`);
 
-    // Build message with doctor and room information
+    if (!patient.phone) {
+      this.logger.error(`[SMS] ❌ Patient ${patientId} (${patient.firstName} ${patient.lastName}) has no phone number`);
+      throw new Error(`Patient ${patient.firstName} ${patient.lastName} has no phone number`);
+    }
+
+    // Build message with room information - simple and clear
+    // roomName is actually roomNumber (e.g., "101")
     let message: string;
     
+    // Format room number - ensure it says "room 101" not just "101"
+    const roomText = roomName.toLowerCase().includes('room') ? roomName : `room ${roomName}`;
+    
     if (doctorName) {
-      message = `🔔 It's your turn! ${doctorName} is ready to check you at ${roomName}. Please proceed to the room now.`;
+      message = `Please go to ${roomText} for service. ${doctorName} is ready to see you.`;
     } else {
-      message = `🔔 It's your turn! Please proceed to ${roomName} for your check-up. You're being called now.`;
+      message = `Please go to ${roomText} for service.`;
     }
 
-    this.logger.log(`[SMS] Sending message: "${message}"`);
+    const formattedPhone = this.formatPhoneNumber(patient.phone);
+    this.logger.log(`[SMS] Message: "${message}"`);
+    this.logger.log(`[SMS] Phone: ${patient.phone} → formatted: ${formattedPhone}`);
 
     try {
-      await this.sendSms(patient.phone, message);
+      this.logger.log(`[SMS] Attempting to send SMS...`);
+      const result = await this.sendSms(patient.phone, message);
       this.markSent(patientId);
-      this.logger.log(`[SMS] ✅ Called to room SMS sent successfully to ${patient.phone}`);
-    } catch (error) {
-      this.logger.error(`[SMS] ❌ Failed to send called SMS:`, error);
+      this.logger.log(`[SMS] ✅ Called to room SMS sent successfully!`);
+      this.logger.log(`[SMS] Result: ${JSON.stringify(result)}`);
+      this.logger.log(`[SMS] ========== sendCalledToRoom SUCCESS ==========`);
+      return result;
+    } catch (error: any) {
+      this.logger.error(`[SMS] ❌ Failed to send called SMS`);
+      this.logger.error(`[SMS] Error type: ${error.constructor?.name || 'Unknown'}`);
+      this.logger.error(`[SMS] Error message: ${error.message || 'No message'}`);
+      this.logger.error(`[SMS] Error code: ${error.code || 'No code'}`);
+      if (error.response) {
+        this.logger.error(`[SMS] Error response status: ${error.response.status}`);
+        this.logger.error(`[SMS] Error response data: ${JSON.stringify(error.response.data || {})}`);
+      }
+      this.logger.error(`[SMS] Error stack:`, error.stack);
+      this.logger.error(`[SMS] ========== sendCalledToRoom FAILED ==========`);
       throw error; // Re-throw to propagate error
     }
   }
@@ -358,18 +458,24 @@ export class SmsService {
 
     this.logger.log(`[SMS] Patient found: ${patient.firstName} ${patient.lastName}, phone: ${patient.phone}`);
 
-    const clinic = clinicName || 'our clinic';
+    const clinic = clinicName || 'our dental clinic';
     
-    const message = `✨ Thank you for visiting ${clinic}! We hope you had a great experience. Your feedback means a lot to us - please share your thoughts to help us improve our services. We look forward to seeing you again!`;
+    const message = `Thank you for visiting ${clinic}! We sincerely hope you had a great experience.
+
+Your feedback is invaluable to us—please share your thoughts to help us improve our services. We look forward to seeing you again soon!`;
 
     this.logger.log(`[SMS] Sending message: "${message}"`);
+    this.logger.log(`[SMS] Patient phone: ${patient.phone}, formatted: ${this.formatPhoneNumber(patient.phone)}`);
 
     try {
-      await this.sendSms(patient.phone, message);
+      const result = await this.sendSms(patient.phone, message);
       this.markSent(patientId);
-      this.logger.log(`[SMS] ✅ Completion SMS sent successfully to ${patient.phone}`);
-    } catch (error) {
+      this.logger.log(`[SMS] ✅ Completion SMS sent successfully to ${patient.phone}. Result: ${JSON.stringify(result)}`);
+      return result;
+    } catch (error: any) {
       this.logger.error(`[SMS] ❌ Failed to send completion SMS:`, error);
+      this.logger.error(`[SMS] Error details: ${error.message || 'Unknown error'}`);
+      this.logger.error(`[SMS] Error stack:`, error.stack);
       throw error; // Re-throw to propagate error
     }
   }
@@ -428,13 +534,15 @@ export class SmsService {
 
       const message = `Appointment Confirmed! Your ${appointmentType} appointment is scheduled for ${appointmentDate} at ${appointmentTime}. See you then!`;
 
-      this.logger.log(`[SMS] Sending booking confirmation to ${appointment.patient.phone}`);
+      this.logger.log(`[SMS] Sending booking confirmation to ${appointment.patient.phone} (formatted: ${this.formatPhoneNumber(appointment.patient.phone)})`);
 
-      await this.sendSms(appointment.patient.phone, message);
+      const result = await this.sendSms(appointment.patient.phone, message);
       this.markSent(appointment.patient.id);
-      this.logger.log(`[SMS] ✅ Booking confirmation sent to ${appointment.patient.phone}`);
-    } catch (error) {
+      this.logger.log(`[SMS] ✅ Booking confirmation sent to ${appointment.patient.phone}. Result: ${JSON.stringify(result)}`);
+    } catch (error: any) {
       this.logger.error(`[SMS] ❌ Failed to send booking confirmation:`, error);
+      this.logger.error(`[SMS] Error details: ${error.message || 'Unknown error'}`);
+      this.logger.error(`[SMS] Error stack:`, error.stack);
       // Don't throw error - allow booking to succeed even if SMS fails
     }
   }
