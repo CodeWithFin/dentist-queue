@@ -66,7 +66,7 @@ const SelectValue = ({ placeholder }: { placeholder?: string }) => {
   return <option value="" disabled>{placeholder || "Select..."}</option>;
 };
 
-const SelectContent = ({ children }: { children?: React.ReactNode }) => {
+const SelectContent = ({ children: _children }: { children?: React.ReactNode }) => {
   // Return null to prevent rendering outside the select element
   // Children are collected by the parent Select component via context
   return null;
