@@ -38,6 +38,14 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 # Expose port
 EXPOSE 3000
 
-# Start application
-CMD ["npm", "run", "start:prod"]
+# Create startup script
+RUN echo '#!/bin/sh\n\
+echo "🔄 Running database migrations..."\n\
+npx prisma migrate deploy\n\
+echo "✅ Migrations complete"\n\
+echo "🚀 Starting application..."\n\
+npm run start:prod' > /app/start.sh && chmod +x /app/start.sh
+
+# Start application with migrations
+CMD ["/app/start.sh"]
 
