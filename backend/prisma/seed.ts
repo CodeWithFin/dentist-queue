@@ -1,5 +1,5 @@
 import { PrismaClient, RoomStatus } from '@prisma/client';
-
+// iko sawa
 const prisma = new PrismaClient();
 
 async function main() {
